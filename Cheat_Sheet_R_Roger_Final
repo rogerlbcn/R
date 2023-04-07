@@ -1,0 +1,557 @@
+###########################################
+### R Exam Cheat Sheet ###
+### Author: Roger Lopez Benet ###
+### Date: 4/7/2023 ###
+###########################################
+
+########################################
+### Importing all required libraries ###
+########################################
+
+
+library(readxl)
+library(rlang)
+library(caret)
+library(ggplot2)
+library(rpart) # To train our tree
+library(rpart.plot) # To plot the tree
+
+###################################
+### Importing Excel data source ###
+###################################
+
+my_germ <- read_excel("C:/Users/bromi/OneDrive/Python_Projects/In_class_DataSets/german credit card.xls")
+View(my_germ) # Viewing the data set
+
+### The Excel file can also be read the following way is it has multiple sheets: 
+
+# my_airfrance <- read_excel("C:/Users/bromi/OneDrive/R/Air_France_Case_Spreadsheet_Supplement_AF_and_KYK.xls",
+#sheet = "DoubleClick")
+# my_kayak <- read_excel("C:/Users/bromi/OneDrive/R/Air_France_Case_Spreadsheet_Supplement_AF_and_KYK.xls",
+#sheet = "Kayak")
+
+
+#####################################################
+#  Other ways to import data sets:                  #
+####################################                #
+# install.packages("mlbench")                       #
+# library(mlbench)                                  #
+# data("PimaIndiansDiabetes")                       #
+# my_df <- PimaIndiansDiabetes[ , c(1, 2, 3, 4, 5)] #
+#####################################################
+
+
+
+#################################
+### Information Gain Insights ###
+#################################
+
+### Scaler:
+# Creating a Scaler of the number of customers (rows)
+my_cust <- nrow(my_germ) 
+# Creating a Scaler of the number of variables (columns)
+my_var <- ncol(my_germ)
+
+### Vector:
+# Creating a vector by combining both Scalers above. THE ORDER MATTERS! (FIRST ROWS AND SECOND COLUMNS)
+my_dim <- c(my_cust, my_var) # This doesn't really matter. It's just to have all dimentions together 
+
+### Matrix:
+# Creating a Matrix from a Vector:
+# Defining the variables for the Matrix:
+var1 <- my_germ$purpose 
+var2 <- my_germ$good_bad
+## This matrix let's us see the good and bad customers, and the purpose of their accounts: 
+my_matrix <- matrix(c(var1, var2), nrow = my_cust, ncol = 2)
+
+### DataFrame:
+# Transforming the matrix defined above into a DataFrame:
+my_data_frame <- as.data.frame(my_matrix)
+
+### List:
+# Creating list combining all objects defined before:
+my_list <- list(my_data_frame, my_matrix, var1, var2, my_cust)
+
+#################################
+### Information Loss Insights ###
+#################################
+
+### Subsetting: 
+# Subsetting the DataSet by only getting 10 values of each variable of the DataFrame above:
+# Getting the 10 values between 990 and 1000
+
+var1[990:1000] # We don't need a comma because vectors only have one index
+var2[990:1000] # We lost information here, because we only see the data from 990 to 1000, we lost the rest of the values
+# Selecting the first 5 rows and first 3 columns:
+my_germ[1:5, 1:3]
+
+### Frequency Table: 
+table(var1) # This tells us how many of each value we have (i.e. we have 234 zeros, 103 ones...)
+table(var2) # We get BAD: 300 and GOOD: 700. The problem is that they are unbalanced. A possible answer is some clients might be labeled wrongly. 
+
+##########################
+### Massaging the Data ###
+##########################
+
+### Data Types:
+# Checking which data type are the variables:
+
+is.character(var1) # This can return TRUE or FALSE, depending on if they are or are not the data type in question
+is.numeric(var1) # Same as above. But we see that var1 is not numeric. It's a character. Which means we need to convert it to numeric!!!
+is.numeric(var2) # Since var 2 is not numeric, but we want it to be, we need to convert it to binary
+
+# Converting charcter types into numeric:
+as.numeric(var1) 
+as.numeric(var2) # This one has to be converted into binary first. 
+
+### Which function: 
+# The output will give us indexes that meet the conditions specified:
+which(my_germ$good_bad == "good" & my_germ$history > 2) # == looking for equality 
+
+### Length function: 
+# Value count the which function defined above:
+length(which(my_germ$good_bad == "good" & my_germ$history > 2))
+
+######################################
+### Investigating Information Loss ###
+######################################
+
+### Subsetting:
+# Subsetting using the which() funciton: 
+
+# Now we create a smaller data set with only good clients. And saving this subset as my_good
+my_good <- my_germ[which(my_germ$good_bad == "good") , ]
+
+# Subsetting it for the bad customers. Saving it as my_bad
+my_bad <- my_germ[which(my_germ$good_bad == "bad") , ]
+
+### summary() function 
+# Similar to describe() in python:
+# Many insights can be taken from here
+
+summary(my_good) # Check the mean, min, max
+summary(my_bad) # Same for this one. And then compare the numbers
+
+# For example looking at the summary statistics, good customers have 2 (years) as history mean, while the bad ones have 1. 
+
+# Checking the stats for the X customers. They are more similar to the bad customers
+summary(my_germ[ which(my_germ$purpose == "X") , ]) # As seen in the stats customers with an X are similar to the bad ones
+
+### Value counts (table())
+# value_counts equivalent in R
+table(my_germ$purpose)
+
+################################################
+### Substituting values with gsub() funciton ###
+################################################
+
+### "x" for 10 ###
+
+# Substituting "X" for 10 (creating an outlier, on purpose)
+gsub("X", "10", my_germ$purpose) # The 10 needs to be in the same data type as our original one
+
+# Saving it as a new variable (fixed). And transforming it from character to numeric
+my_germ$purpose_fixed <- as.numeric(gsub("X", "10", my_germ$purpose))
+
+
+####################################
+### TRICK!!! To avoid misspellings, print all variables's names using the names() function:
+names(my_germ)
+### TRICK!!! For the variable's values use the unique() function:
+unique(my_germ$good_bad)
+###################################
+
+### "Good" for 1 ###
+
+my_germ$binary <- gsub("good", "1", my_germ$good_bad)
+
+### "Bad" for 0 ###
+
+my_germ$binary <- gsub("bad", "0", my_germ$binary) # substituting 0 from the binary variable just created above!!!
+
+### Transforming the new binary variable into numeric:
+my_germ$binary <- as.numeric(my_germ$binary)
+is.numeric(my_germ$binary)
+my_germ$binary
+
+############################################################
+### Checking if the data is Homogeneous OR Heterogeneous ###
+############################################################
+
+### Re-defining my_germ as a data frame
+my_germ <- as.data.frame(my_germ)
+
+### Checking if data is Homogeneous OR Heterogeneous using a FOR LOOP:
+for (i in 1:ncol(my_germ)){
+  
+  print(min(my_germ[,i], na.rm = TRUE)) # the na.rm here removes NA for calculating min(), mean(), and max()
+  print(mean(my_germ[,i], na.rm = TRUE))
+  print(max(my_germ[,i], na.rm = TRUE))
+  
+} # Closing the i horizontal for loop
+
+my_germ # It's clearly Heterogeneous
+
+
+##########################################################################
+### Implementing the scorecard model for customers (vertical for loop) ###
+##########################################################################
+
+my_germ$risk_score <- c() # Creating a new empty veriable (vector) to store the results 
+
+### For Loop:
+# Running a FOR LOOP to assign an importance weight percentage to the variables listed in it:
+# Getting the the
+
+for(i in 1:nrow(my_germ)){
+  
+  my_germ$risk_score[i] <-    0.5 * my_germ$duration[i] + # We don't need a comma in [] because we have already selected one veriable, which on its own it's a veriable with only one dimension
+                              0.1 * my_germ$age[i] +
+                              0.1 * my_germ$amount[i] +
+                              0.3 * my_germ$installp[i]
+                            
+} # nrow(my_germ) because it's a vertical loop
+
+###########################################################################
+### Introducing business logic to help DB (Douche Bank) be conservative ###
+###########################################################################
+
+### Getting summary statistics
+summary(my_germ$risk_score) # min = 32.7, max = 1869.9, median = 246.7,  mean = 342
+
+### Creating empty vector to store the results fromn the for loop below:
+my_germ$label <- c()
+
+### Vertical for loop:
+# This for loop counts the outstanding (risk-score < 250) and non-outstanding clients (risk-score > 250) 
+for(i in 1:nrow(my_germ)){
+  
+  # if(){} else {}
+  if(my_germ$binary[i] == 1 & my_germ$risk_score[i] < 250){ # smaller than 250 because the median is 246, and our goal is to be conservative:
+    my_germ$label[i] <- "outstanding"
+    
+  } else {my_germ$label[i] <- "non-outstanding"}
+  
+} # Closing for loop
+
+
+### Value counts of the variable defined above: 
+table(my_germ$label)
+
+### Checking all clients classified as non-outstanding: 
+my_germ[which(my_germ$label == "non-outstanding" & my_germ$binary),]
+
+####################################
+### UDF - User Defined Functions ###
+####################################
+
+### UDF
+# Goal: calculating a credit score based on the variables and weight percentages defined below:
+# i.e. w1 stands for weight 1 
+
+# Note: the variables in the UDF only exist locally they are not global variables. 
+
+risk_score <- function(var1, w1, var2, w2, var3, w3, var4, w4){
+  my_score <- var1*w1 + var2*w2 + var3*w3 + var4*w4 
+  return(my_score)
+  
+} # Closing the risk_score UDF
+
+
+# Calling the UDF above for team 13:
+my_germ$team13_score <- risk_score(var1 = my_germ$duration, w1 = 0.2, 
+                                   var2 = my_germ$age, w2 = 0.2, 
+                                   var3 = my_germ$amount, w3 = 0.3, 
+                                   var4 = my_germ$job, w4 = 0.3)
+
+################################################
+### Descriptive Statistics using FOR LOOPS ###
+################################################
+
+### For Loop
+
+## Designing a for loop to look at descriptive stats for each variable ###
+# Types of location: mean, median, mode
+# Horizontal for loop:
+
+for (i in 1:ncol(my_germ)) {
+  
+  # Calculating the minimum:
+  # The try() function lets us try a function that might fail
+  my_min  <- try(min(my_germ[,i], na.rm  = TRUE)) 
+  my_max  <- try(max(my_germ[,i], na.rm  = TRUE)) 
+  my_mean <- try(mean(my_germ[,i], na.rm = TRUE)) 
+  my_std  <- try(sd(my_germ[,i], na.rm   = TRUE)) 
+  
+  # Creating a vector with the right order to get information gain (biz insights)
+  print(c(my_min, my_mean, my_std, my_max))
+  
+} # Co losing for loop
+
+#############
+### Plots ###
+#############
+
+hist(my_germ$history)
+
+
+######################################
+###  ###
+######################################
+
+# Example 1:
+### Creating vector with random numbers with a rate of 15, also known as lambda 
+train <- rexp(10000, rate = 15)
+
+mean(train)
+hist(train) # The distribution is not compact. We see that the longest you can wait to get onto your train is 30 minutes. 
+
+# Example 2:
+# San Francisco train (BART0)
+trainSF <- rexp(10000, rate = 0.5) # mean = 2.010869
+
+########################
+
+### Applying it to the German (Douche Bank) data set:
+# We'll use a horizontal for loop, because we're looping through our variables: 
+# Looping through horizontal to see the shape of all the vars:
+
+for(i in 1:ncol(my_germ)){
+  try(hist(my_germ[,i])) # i on the right because we loop through our columns (variables) # We use the try() function to avoid the loop from stopping in the first iteration
+  
+} # Closing the for loop
+
+### MIN-MAX
+# Removing units using normalization:
+normalize <- function(x){ # x is the variable vector
+  min_max <- (x - min(x)) / (max(x) - min(x)) # calculating the min-max
+  return(min_max)
+} # Closing normalize function 
+
+#####################
+### Normalization ###
+#####################
+
+# Normalizing variables and creating new variables
+# Since we only have one input R understands this is x
+
+my_germ$checking_norm <- normalize(my_germ$checking) 
+my_germ$duration_norm <- normalize(my_germ$duration) 
+my_germ$history_norm <- normalize(my_germ$history) 
+my_germ$amount_norm <- normalize(my_germ$amount) 
+my_germ$employed_norm <- normalize(my_germ$employed) 
+my_germ$savings_norm <- normalize(my_germ$savings) 
+my_germ$installp_norm <- normalize(my_germ$installp) 
+my_germ$coapp_norm <- normalize(my_germ$coapp) 
+my_germ$age_norm <- normalize(my_germ$age) 
+# There are no business units now that the data in these variables has been normalized
+
+###################
+### Correlation ###
+###################
+
+cor.test(my_germ$age, my_germ$amount) # Pearson correlation coefficient is = 0.03271642. This is a weak correlation. Good!
+
+
+###############################################
+### Splitting data into TRAIN and TEST sets ###
+###############################################
+
+# Before Predictive modeling: Splitting data set into Training and testing 
+# Vertical sample:
+
+training_idx <- sample(1 : 1000, size = 0.8 * nrow(my_germ)) # We don't replace to not get duplicates 
+
+# Train set:
+my_germ_train <- my_germ[training_idx, ] # TRAIN SET contains 80% of the data
+# Test set:
+my_germ_test <- my_germ[-training_idx, ] # to get the TEST SET, we subtract the TRAINING_IDX
+
+
+
+###########################
+### Logistic Regression ###
+###########################
+
+
+table(my_germ_train$binary)
+
+
+### Building a logistic model ###
+
+my_logit <- glm(binary ~ age + 
+                         duration +
+                         coapp +
+                         savings +
+                         amount, 
+                data = my_germ_train,
+                family = "binomial")
+
+# Summary function to view the logic
+summary(my_logit)# p-values: The best variables are the ones with the stars
+
+################################################
+### Calculating the ODDS of business success ###
+################################################
+
+### based on the summary info of the above glm model: Biz units for age:###
+# 1.457e-02 is the coefficient of the variable age
+exp(1.547e-02)-1 # Therefore, for every additional year of age, the ODDS of biz success increase by 1.56%
+
+
+#####################################################
+### Logictic Regression model for Normalized Data ###
+#####################################################
+
+my_logit_norm <- glm(binary ~ age_norm + 
+                              duration_norm +
+                              coapp_norm +
+                              checking_norm +
+                              amount_norm, 
+                     data = my_germ_train,
+                     family = "binomial")
+
+summary(my_logit_norm)
+
+### Biz insights for AGE ###
+### We cannot get the business units for each variable (separately) # Therefore we cannot do: exp(0.8711)-1
+
+# Instead, we look at the strongest and weakest coefficients: Estimate Std. I.E. Here the weakest var is duration_norm
+# While the strongest one is checking_norm with  1.9260. 
+### Therefore, the two variables that the business should focus more on are the ones mentioned above: checking_norm and duration_norm
+
+
+##############################################################
+### Predict() - Predicting probability of business success ###
+##############################################################
+
+
+my_prediction <- predict(my_logit, my_germ_test, type = "response")
+
+### Probability TO Odds: Based on the above prediction. We need to transform probability into odds
+# Based on client 21, we get: 0.7775719 of biz success
+
+biz_failure <- 1-0.7775719
+# To get the odds we devide 1-biz success by biz failure:
+odds <- 0.7775719/biz_failure
+odds # 3.495835 or 3.49% business success for one extra unit of the variables defined in our model
+
+########################
+### Confusion Matrix ###
+########################
+
+# It's business success if it's above 0.5 (50%)
+confusionMatrix(data = as.factor(as.numeric(my_prediction > 0.8)), # If it's above 0.5 the it's Business Success
+                reference = as.factor(as.numeric(my_germ_test$binary)))
+
+
+#             Reference      
+#               TN  FP
+# Prediction     0  1
+#             _________
+#           0 | 50 | 94
+#           1 | 8  | 48    
+#             _________
+#              FN    TP
+
+### The confusion matrix above means that there were a lot of false positives (94), which means represents a 47% 
+
+
+#############################
+### Tree predictive model ###
+#############################
+
+my_tree <- rpart(binary ~ age + 
+                          duration +
+                          checking +
+                          coapp +
+                          savings +
+                          amount, 
+                 data = my_germ_train,
+                 method = "class", 
+                 control = rpart.control(minsplit = 1, 
+                                         minbucket = 1, 
+                                         cp = 0.02)) # Added and changed the cp parameter to shrink the tree, and make it more readable  
+                                                     # The smaller the cp the bigger the tree
+### Plotting my_tree model:
+rpart.plot(my_tree, type = 1, extra = 1)
+
+### Predict biz success 
+my_germ_tree_predict <- predict(my_tree, my_germ_test, type = "prob")
+
+confusionMatrix(data = as.factor(as.numeric(my_germ_tree_predict[ , 2] > 0.5)), 
+                reference = as.factor(as.numeric(my_germ_test$binary)))
+
+####################################
+
+# Another example:
+########################
+### 1. Decision Tree ###
+my_tree_whole <- rpart(binary ~ age + 
+                                duration +
+                                checking +
+                                coapp +
+                                savings +
+                                amount, 
+                 data = my_germ, # Using the whole dataset
+                 method = "class", 
+                 control = rpart.control(minsplit = 1, 
+                                         minbucket = 1, 
+                                         cp = 0.02)) # Added and changed the cp parameter to shrink the tree, and make it more readable  
+# The smaller the cp the bigger the tree
+### Plotting my_tree model:
+rpart.plot(my_tree_whole, type = 1, extra = 1)
+
+##############################
+### 2. Predict biz success ###
+my_germ_tree_predict_whole <- predict(my_tree_whole, my_germ, type = "prob")
+
+#########################################################
+### 3. Value Counts for classes (Biz Success/Failure) ###
+# Based on the predition above, we can classify and value count how many of the predictions are classified as success and failure: 
+predicted_classes <- apply(my_germ_tree_predict_whole, 1, which.max)
+table(predicted_classes)
+
+###########################
+### 4. Confusion Matrix ###
+confusionMatrix(data = as.factor(as.numeric(my_germ_tree_predict_whole[ , 2] > 0.5)), 
+                reference = as.factor(as.numeric(my_germ$binary)))
+
+###########################
+
+####################
+### Scatter Plot ###
+####################
+
+### Scatter Plot 1:
+ggplot(data = my_germ, 
+       aes(x = amount, y =  risk_score)) +
+  geom_point() + # Remove size aesthetic as gear variable is not present in my_germ
+  geom_smooth()
+
+### Scatter Plot 2:
+ggplot(my_germ, aes(x = age, y = amount, color = good_bad)) +
+       geom_point() + 
+       labs(title = "Scatter Plot for Age and Amount", 
+            x = "Age",
+            y = "Amount",
+            color = "Good/Bad")
+
+##########
+### Scatter plot 2.2:
+# This Scatter plot includes a linear regression line:
+
+ggplot(my_germ, aes(x = age, y = amount, color = good_bad)) +
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) + # Add linear regression line
+  labs(title = "Scatter Plot for Age and Amount", 
+       x = "Age",
+       y = "Amount",
+       color = "Good/Bad")
+
+
+
+names(my_germ)
+
+
+
